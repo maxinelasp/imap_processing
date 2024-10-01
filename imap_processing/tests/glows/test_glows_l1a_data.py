@@ -1,27 +1,31 @@
 import ast
 import dataclasses
+import json
 from functools import reduce
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from imap_processing.glows import __version__
 from imap_processing.glows.l0 import decom_glows
-from imap_processing.glows.l1a.glows_l1a import process_de_l0
+from imap_processing.glows.l1a.glows_l1a import glows_l1a, process_de_l0
 from imap_processing.glows.l1a.glows_l1a_data import (
     DirectEventL1A,
     HistogramL1A,
     StatusData,
 )
-from imap_processing.glows.utils.constants import DirectEvent, TimeTuple
+from imap_processing.glows.utils.constants import DirectEvent, GlowsConstants, TimeTuple
 
 
 @pytest.fixture(scope="module")
 def decom_test_data():
     """Read test data from file"""
     current_directory = Path(__file__).parent
-    packet_path = current_directory / "glows_test_packet_20110921_v01.pkts"
+    packet_path = (
+        current_directory / "validation_data" / "glows_test_packet_20110921_v01.pkts"
+    )
     data_packet_list = decom_glows.decom_packets(packet_path)
     return data_packet_list
 
@@ -59,8 +63,8 @@ def test_histogram_list(histogram_test_data, decom_test_data):
     """Test size of histogram data"""
     histl0 = decom_test_data[0][0]
 
-    assert len(histogram_test_data.histograms) == 3600
-    assert sum(histogram_test_data.histograms) == histl0.EVENTS
+    assert len(histogram_test_data.histogram) == 3600
+    assert sum(histogram_test_data.histogram) == histl0.EVENTS
 
 
 def test_histogram_attributes(histogram_test_data):
@@ -393,13 +397,15 @@ def test_generate_status_data():
     assert dataclasses.asdict(output) == expected
 
 
-def test_expected_results(l1a_test_data):
+def test_expected_de_results(l1a_test_data):
     _, de_data = l1a_test_data
 
     # Validation data is generated from the code sent over by GLOWS team. Contains the
     # first 20 packets
     validation_data = pd.read_csv(
-        Path(__file__).parent / "direct_events_validation_data_l1a.csv",
+        Path(__file__).parent
+        / "validation_data"
+        / "direct_events_validation_data_l1a.csv",
         converters={"de_data": ast.literal_eval},
     )
     assert validation_data.index.size == 5703
@@ -508,3 +514,57 @@ def test_expected_results(l1a_test_data):
             de.direct_events[validation_data["de_data_counter"][index]].multi_event
             == validation_data["de_data"][index][3]
         )
+
+
+def test_expected_hist_results(l1a_test_data):
+    input_data = (
+        Path(__file__).parent
+        / "validation_data"
+        / "glows_test_packet_20110921_v01.pkts"
+    )
+
+    hist = glows_l1a(input_data, "v001")[0]
+    validation_data = (
+        Path(__file__).parent / "validation_data" / "glows_l1a_hist_validation.json"
+    )
+    with open(validation_data) as f:
+        out = json.load(f)
+
+    # mapping from validation data names to dataset names
+    time_fields = {
+        "glows_start_time": "glows_start_time",
+        "glows_end_time_offset": "glows_time_offset",
+        "imap_start_time": "imap_start_time",
+        "imap_end_time_offset": "imap_time_offset",
+    }
+
+    # block header and flags are handled differently, so not tested here
+    compare_fields = [
+        "first_spin_id",
+        "last_spin_id",
+        "number_of_spins_per_block",
+        "number_of_bins_per_histogram",
+        "histogram",
+        "number_of_events",
+        "filter_temperature_average",
+        "filter_temperature_variance",
+        "hv_voltage_average",
+        "hv_voltage_variance",
+        "spin_period_average",
+        "spin_period_variance",
+        "pulse_length_average",
+        "pulse_length_variance",
+    ]
+
+    for index, data in enumerate(out["output"]):
+        for field in time_fields.keys():
+            expected_time = (
+                data[field]["seconds"]
+                + data[field]["subseconds"] / GlowsConstants.SUBSECOND_LIMIT
+            )
+            assert np.array_equal(
+                expected_time, hist.isel(epoch=index)[time_fields[field]].data
+            )
+
+        for field in compare_fields:
+            assert np.array_equal(data[field], hist.isel(epoch=index)[field].data)
