@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from space_packet_parser.parser import Packet
+from space_packet_parser import packets
 
 from imap_processing.ccsds.ccsds_data import CcsdsData
 from imap_processing.lo.l0.decompression_tables.decompression_tables import (
@@ -124,7 +124,7 @@ class ScienceDirectEvents(LoBase):
 
     def __init__(
         self,
-        packet: Packet,
+        packet: packets.CCSDSPacket,
         software_version: str,
         packet_file_name: str,
     ) -> None:
@@ -133,7 +133,7 @@ class ScienceDirectEvents(LoBase):
 
         Parameters
         ----------
-        packet : space_packet_parser.parser.Packet
+        packet : space_packet_parser.packets.CCSDSPacket
             Single packet from space_packet_parser.
         software_version : str
             Current version of IMAP-Lo processing.
@@ -179,7 +179,7 @@ class ScienceDirectEvents(LoBase):
 
             # Case decoder indicates which parts of the data
             # are transmitted for each case.
-            case_decoder = CASE_DECODER[(case_number, self.MODE[de_idx])]  # type: ignore[index]
+            case_decoder = CASE_DECODER[(case_number, self.MODE[de_idx])]
             # Todo Mypy Error: Invalid index type "tuple[int, ndarray[Any, Any]]" for
             # "dict[tuple[int, int], TOFFields]"; expected type "tuple[int, int]"
 
