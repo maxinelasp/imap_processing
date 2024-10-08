@@ -470,9 +470,7 @@ class HistogramL1B:
 
     histogram: np.ndarray
     flight_software_version: str
-    # pkts_file_name: str TODO: add this in L0
     seq_count_in_pkts_file: int
-    # l1a_file_name: str TODO: add this
     # ancillary_data_files: np.ndarray TODO Add this
     first_spin_id: int
     last_spin_id: int
@@ -512,7 +510,6 @@ class HistogramL1B:
     # TODO:
     # - Determine a good way to output flags as "human readable"
     # - Add spice pieces
-    # - add in the filenames for the input files - should they be global attributes?
     # - also unique identifiers
     # - Bad angle algorithm using SPICE locations
     # - Move ancillary file to AWS

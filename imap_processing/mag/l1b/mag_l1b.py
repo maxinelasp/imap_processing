@@ -121,5 +121,4 @@ def calibrate(
     updated_vector[:3] = np.matmul(
         input_vector[:3], calibration_matrix.values[:, :, int(input_vector[3])]
     )
-
     return updated_vector
